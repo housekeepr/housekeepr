@@ -11,6 +11,7 @@ class VCTransactions {
   public $type;
   public $comment;
   public $amount;
+  public $items;
 
   // constructor with $db as database connection
   public function __construct($db){
@@ -19,13 +20,11 @@ class VCTransactions {
 
   // read products
   function read($user){
-      // select all query
-      $query = "SELECT vc_transactions.id AS id, vc_transactions.date AS date, vc_transactions.amount AS amount,
-                vc_shops.name AS shop, vc_categories.name AS category, vc_transactions.comment AS comment,
-                vc_shops.logo AS logo
-                FROM vc_transactions, vc_shops, vc_categories
-                WHERE vc_transactions.shop = vc_shops.id AND vc_transactions.category = vc_categories.id
-                AND vc_transactions.user = ".$user->userid." ORDER BY date DESC, shop DESC";
+      // select all receipts
+      $query = "SELECT vc_receipts.id AS id, vc_shops.name as shop, vc_receipts.date AS date
+                FROM vc_receipts, vc_shops
+                WHERE vc_receipts.shop = vc_shops.id AND user = ".$user->userid."
+                ORDER BY date DESC";
 
       // prepare query statement
       $stmt = $this->conn->prepare($query);
@@ -33,31 +32,51 @@ class VCTransactions {
       // execute query
       $stmt->execute();
 
-      $transaction_arr = array();
-
-      // retrieve our table contents
+      $receipt_arr = array();
       while ($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+        extract($row);
+
+        // read items for this receipt
+        $query = "SELECT vc_transactions.id AS id, vc_categories.name AS category, vc_transactions.amount AS amount, vc_transactions.comment AS comment
+                  FROM vc_transactions, vc_categories
+                  WHERE vc_transactions.category = vc_categories.id AND vc_transactions.receipt_id = ".$id;
+
+        // prepare query statement
+        $item_stmt = $this->conn->prepare($query);
+
+        // execute query
+        $item_stmt->execute();
+
+        $items_arr = array();
+        while($row = $item_stmt->fetch(PDO::FETCH_ASSOC)){
           extract($row);
 
-          $transaction_item=array(
-              "id" => $id,
-              "date" => $date,
-              "amount" => $amount,
-              "shop" => $shop,
-              "logo" => $logo,
-              "category" => $category,
-              "comment" => $comment,
+          $items_item=array(
+            "id"=>$id,
+            "category"=>$category,
+            "amount"=>$amount,
+            "comment"=>$comment
           );
 
-          array_push($transaction_arr, $transaction_item);
+          array_push($items_arr, $items_item);
         }
 
-      return $transaction_arr;
+        $receipt_item=array(
+          "id" => $id,
+          "date" => $date,
+          "shop" => $shop,
+          "items" => $items_arr
+        );
+
+        array_push($receipt_arr, $receipt_item);
+      }
+
+      return $receipt_arr;
   }
 
   function create($user){
-    // query
-    $query = "INSERT INTO vc_transactions SET user=:user, date=:date, shop=:shop, category=:category, amount=:amount, comment=:comment";
+    // create the receipt
+    $query = "INSERT INTO vc_receipts SET shop=:shop, user=:user, date=:date";
 
     // prepare query
     $stmt = $this->conn->prepare($query);
@@ -66,15 +85,35 @@ class VCTransactions {
     $stmt->bindParam(":user", $user->userid);
     $stmt->bindParam(":date", $this->date);
     $stmt->bindParam(":shop", $this->shop);
-    $stmt->bindParam(":category", $this->category);
-    $stmt->bindParam(":amount", $this->amount);
-    $stmt->bindParam(":comment", $this->comment);
 
     // execute query
-    if($stmt->execute()){
-      return true;
-    } else {
+    if(!$stmt->execute()){
       return false;
+    }
+
+    // get receipt id
+    $insertid = $this->conn->lastInsertId();
+
+    // insert all items
+    foreach($this->items as &$item){
+      // query
+      $query = "INSERT INTO vc_transactions SET receipt_id=:receipt_id, category=:category, amount=:amount, comment=:comment";
+
+      // prepare query
+      $stmt = $this->conn->prepare($query);
+
+      // bind values
+      $stmt->bindParam(":receipt_id", $insertid);
+      $stmt->bindParam(":category", $item->category);
+      $stmt->bindParam(":amount", $item->amount);
+      $stmt->bindParam(":comment", $item->comment);
+
+      // execute query
+      if($stmt->execute()){
+        return true;
+      } else {
+        return false;
+      }
     }
   }
 }

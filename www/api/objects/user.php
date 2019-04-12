@@ -12,6 +12,7 @@ class User {
     public $userid;
     public $passwordPlain;
     public $passwordHashed;
+    public $identifier;
     public $error;
 
     // constructor with $db as database connection
@@ -32,7 +33,7 @@ class User {
           return false;
         }
 
-        $query = "SELECT id, secret FROM ".$this->db_table." WHERE token = ?";
+        $query = "SELECT user, secret FROM token WHERE token = ?";
         $stmt = $this->conn->prepare($query);
 
         //bind
@@ -51,7 +52,7 @@ class User {
         //signature matches db secret+clientTimestamp
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $this->serverSecret = $row['secret'];
-        $this->userid = $row['id'];
+        $this->userid = $row['user'];
 
         $this->serverSignature = hash_hmac('sha256', $clientTimestamp, $this->serverSecret, true);
         $this->serverSignature = base64_encode($this->serverSignature);
@@ -114,7 +115,7 @@ class User {
     }
 
     function checkCredentials(){
-      $query = "SELECT id, username, secret, token, password FROM ".$this->db_table." WHERE username = ?";
+      $query = "SELECT id, username, password FROM ".$this->db_table." WHERE username = ?";
       $stmt = $this->conn->prepare($query);
 
       //bind
@@ -137,9 +138,35 @@ class User {
 
       //check if password is correct
       if (password_verify($this->passwordPlain, $this->passwordHashed)) {
-        $this->serverToken = $row['token'];
-        $this->serverSecret = $row['secret'];
         $this->userid = $row['id'];
+
+        //create new pair of secret and token
+        $this->serverSecret = base64_encode(random_bytes(24));
+        $this->serverToken = base64_encode(random_bytes(12));
+
+        $query = "INSERT INTO token SET user=:user, identifier=:identifier, token=:token, secret=:secret";
+
+        // prepare query
+        $stmt = $this->conn->prepare($query);
+
+        // bind values
+        $stmt->bindParam(":user", $this->userid);
+        $stmt->bindParam(":identifier", $this->identifier);
+        $stmt->bindParam(":token", $this->serverToken);
+        $stmt->bindParam(":secret", $this->serverSecret);
+
+
+        // execute query
+        if($stmt->execute()){
+          return true;
+          echo $this->serverToken.'\n';
+          echo $this->serverSecret;
+        } else {
+	  //$this->error = "error creating new secret-token pair";
+	  $this->error = $stmt->errorInfo();
+	  return false;
+        }
+
         return true;
       } else {
         $this->error = "wrong password";

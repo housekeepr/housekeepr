@@ -21,9 +21,12 @@ $db = $database->getConnection();
 // instantiate user object
 $user = new User($db);
 
-//set user and password
+// set user and password
 $user->username = $_GET['username'];
 $user->passwordPlain = $_GET['password'];
+
+// set identifier
+$user->identifier = $_GET['identifier'];
 
 // call check method
 if(!$user->checkCredentials()){
