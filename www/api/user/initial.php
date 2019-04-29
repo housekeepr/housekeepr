@@ -9,7 +9,7 @@ require_once '../config/database.php';
 require_once '../objects/user.php';
 
 // error if parameters missing
-if (Empty($_GET['username']) || Empty($_GET['password'])){
+if (Empty($_GET['username']) || Empty($_GET['password']) || Empty($_GET['identifier'])){
   print_r(json_encode(array("error" => "missing parameters")));
   exit;
 }

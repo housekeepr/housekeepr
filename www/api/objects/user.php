@@ -21,13 +21,13 @@ class User {
     }
 
     function validateCall($clientSignature, $clientToken, $clientTimestamp){
-        //missing parameters
+        // missing parameters
         if(Empty($clientSignature) || Empty($clientToken) || Empty($clientTimestamp)){
           $this->error = "missing header";
           return false;
         }
 
-        //not older than 30s
+        // not older than 30s
         if(time() - $clientTimestamp > 30){
           $this->error ="timestamp too old";
           return false;
@@ -36,20 +36,20 @@ class User {
         $query = "SELECT user, secret FROM token WHERE token = ?";
         $stmt = $this->conn->prepare($query);
 
-        //bind
+        // bind
         $stmt->bindParam(1, $clientToken);
 
-        //execute
+        // execute
         $stmt->execute();
 
-        //no user with this token
+        // no user with this token
         $num = $stmt->rowCount();
         if ($num == 0){
           $this->error = "combination not existing";
           return false;
         }
 
-        //signature matches db secret+clientTimestamp
+        // signature matches db secret+clientTimestamp
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $this->serverSecret = $row['secret'];
         $this->userid = $row['user'];
@@ -62,7 +62,27 @@ class User {
             return false;
         }
 
-      return true;
+        // update last activity
+        $query = "UPDATE token SET last_used = CURRENT_TIMESTAMP WHERE secret = ? and token = ?";
+        $stmt = $this->conn->prepare($query);
+
+        // bind
+        $stmt->bindParam(1, $this->serverSecret);
+        $stmt->bindParam(2, $clientToken);
+
+        // execute
+        $stmt->execute();
+
+        // get user informations
+        $query = "SELECT username FROM user WHERE id = :userid";
+        $stmt = $this->conn->prepare($query);
+        // bind
+        $stmt->bindParam(":userid", $this->userid);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->username = $row['username'];
+
+        return true;
     }
 
     function createUser(){
@@ -126,21 +146,21 @@ class User {
 
       $num = $stmt->rowCount();
 
-      //no result = not existing account
+      // no result = not existing account
       if ($num == 0) {
           $this->error = "account not existing";
           return false;
       }
 
-      //fetch password hash
+      // fetch password hash
       $row = $stmt->fetch(PDO::FETCH_ASSOC);
       $this->passwordHashed = $row['password'];
 
-      //check if password is correct
+      // check if password is correct
       if (password_verify($this->passwordPlain, $this->passwordHashed)) {
         $this->userid = $row['id'];
 
-        //create new pair of secret and token
+        // create new pair of secret and token
         $this->serverSecret = base64_encode(random_bytes(24));
         $this->serverToken = base64_encode(random_bytes(12));
 

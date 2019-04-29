@@ -23,7 +23,7 @@ class Categories {
       // execute query
       $stmt->execute();
 
-      // shops array
+      // categories array
       $cat_arr=array();
 
       // retrieve our table contents

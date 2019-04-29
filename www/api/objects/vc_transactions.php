@@ -19,15 +19,19 @@ class VCTransactions {
   }
 
   // read products
-  function read($user){
+  function read($user, $results){
       // select all receipts
       $query = "SELECT vc_receipts.id AS id, vc_shops.name as shop, vc_receipts.date AS date
                 FROM vc_receipts, vc_shops
                 WHERE vc_receipts.shop = vc_shops.id AND user = ".$user->userid."
-                ORDER BY date DESC";
+                ORDER BY date DESC
+                LIMIT :results";
 
       // prepare query statement
       $stmt = $this->conn->prepare($query);
+
+      // bind params
+      $stmt->bindParam(":results", $results, PDO::PARAM_INT);
 
       // execute query
       $stmt->execute();
@@ -37,7 +41,7 @@ class VCTransactions {
         extract($row);
 
         // read items for this receipt
-        $query = "SELECT vc_transactions.id AS id, vc_categories.name AS category, vc_transactions.amount AS amount, vc_transactions.comment AS comment
+        $query = "SELECT vc_transactions.id AS receipt_id, vc_categories.name AS category, vc_transactions.amount AS amount, vc_transactions.comment AS comment
                   FROM vc_transactions, vc_categories
                   WHERE vc_transactions.category = vc_categories.id AND vc_transactions.receipt_id = ".$id;
 
@@ -52,7 +56,7 @@ class VCTransactions {
           extract($row);
 
           $items_item=array(
-            "id"=>$id,
+            "id"=>$receipt_id,
             "category"=>$category,
             "amount"=>$amount,
             "comment"=>$comment
@@ -109,12 +113,12 @@ class VCTransactions {
       $stmt->bindParam(":comment", $item->comment);
 
       // execute query
-      if($stmt->execute()){
-        return true;
-      } else {
+      if(!$stmt->execute()){
         return false;
       }
     }
+
+    return true;
   }
 }
 ?>

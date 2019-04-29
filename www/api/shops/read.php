@@ -31,7 +31,10 @@ if(!$user->validateCall($clientSignature, $clientToken, $clientTimestamp)){
 // initialize object
 $shops = new Shops($db);
 
-// print transactions
-print_r(json_encode($shops->read()));
+// print shops
+
+$response = array("error" => NULL, "records" => $shops->read($user));
+
+print_r(json_encode($response));
 
 ?>

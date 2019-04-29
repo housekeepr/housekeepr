@@ -7,10 +7,8 @@ header("Content-Type: application/json; charset=UTF-8");
 require_once '../config/core.php';
 require_once '../config/database.php';
 require_once '../objects/user.php';
-require_once '../objects/vc_transactions.php';
 
-
-// instantiate database and product object
+// instantiate database object
 $database = new Database();
 $db = $database->getConnection();
 
@@ -23,18 +21,5 @@ if(!$user->validateCall($_SERVER['HTTP_X_AUTH_SIGNATURE'], $_SERVER['HTTP_X_AUTH
     exit;
 }
 
-// get number of records
-if (is_numeric($_GET['records']) && 0 < $_GET['records']){
-  $records = $_GET['records'];
-}
-else {
-  $records = 20;
-}
-
-// initialize object
-$transaction = new VCTransactions($db);
-
-// print transactions
-print_r(json_encode(array("error" => NULL, "records" => $transaction->read($user, $records))));
-
+print_r(json_encode(array("error" => NULL, "userid" => $user->userid, "username" => $user->username)));
 ?>

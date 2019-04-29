@@ -16,11 +16,6 @@ $db = $database->getConnection();
 // instantiate auth object
 $user = new User($db);
 
-// set timestamp, token and signature
-$clientSignature = $_SERVER['HTTP_X_AUTH_SIGNATURE'];
-$clientToken = $_SERVER['HTTP_X_AUTH_TOKEN'];
-$clientTimestamp = $_SERVER['HTTP_X_AUTH_TIMESTAMP'];
-
 // validate call
 if(!$user->validateCall($_SERVER['HTTP_X_AUTH_SIGNATURE'], $_SERVER['HTTP_X_AUTH_TOKEN'], $_SERVER['HTTP_X_AUTH_TIMESTAMP'])){
     print_r(json_encode(array("error" => $user->error)));
@@ -30,5 +25,7 @@ if(!$user->validateCall($_SERVER['HTTP_X_AUTH_SIGNATURE'], $_SERVER['HTTP_X_AUTH
 // initialize object
 $categories = new Categories($db);
 
-print_r(json_encode($categories->read($user)));
+$response = array("error" => NULL, "records" => $categories->read($user));
+
+print_r(json_encode($response));
 ?>
